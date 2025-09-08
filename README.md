@@ -1,36 +1,95 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 💬 Messenger App (WhatsApp Clone)
 
-## Getting Started
+Una pequeña aplicación que simula un chat estilo WhatsApp utilizando **Next.js**, **React**, **TailwindCSS** y un **servidor WebSocket** en Node.js.  
+Permite enviar mensajes, imágenes y archivos en tiempo real de forma sencilla.
 
-First, run the development server:
+---
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## 🚀 Características
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- 🔗 **Conexión en tiempo real** con WebSockets.
+- 📝 **Mensajes de texto** con hora de envío.
+- 📂 **Envío de archivos** (imágenes y documentos).
+- 🟢 **Notificaciones de conexión/desconexión** de usuarios.
+- 🎨 **Interfaz estilo WhatsApp** con **TailwindCSS**.
+- ⚡ Construido con **Next.js** y **React 19**.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 🛠️ Requisitos
 
-## Learn More
+- [Node.js](https://nodejs.org/) `>=20.x`
+- [Bun](https://bun.sh/) (para ejecutar el servidor WebSocket más rápido)
+- npm, yarn o bun para manejar dependencias.
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 📦 Instalación
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. **Clonar el repositorio**
+   ```bash
+   git clone https://github.com/notmarin/messenger-app.git
+   cd messenger-app
+   ```
+1. **Clonar el repositorio**
+   ```bash
+   bun install
+   # o
+   npm install
+   ```
 
-## Deploy on Vercel
+---
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## ▶️ Ejecución
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. **Iniciar el servidor WebSocket**
+   ```bash
+   bun run server
+   ```
+   El servidor WebSocket escuchará en:
+   ```arduino
+   ws://localhost:5000
+   ```
+2. **Iniciar la app de Next.js**
+   ```bash
+   bun run dev
+   # o
+   npm run dev
+   ```
+   Luego abre tu navegador en:
+   ```arduino
+   http://localhost:3000
+   ```
+
+---
+
+## 💻 Uso
+
+1. Abre la aplicación en tu navegador.
+
+2. Ingresa tu nombre de usuario.
+
+3. Envía mensajes y archivos:
+   - 📤 Texto
+
+   - 🖼️ Imágenes (JPG, PNG, GIF, WEBP)
+
+   - 📎 Archivos (cualquier extensión)
+
+4. Observa en tiempo real los mensajes y usuarios conectados.
+
+---
+
+## 📡 Tecnologías usadas
+
+- Next.js 15
+
+- React 19
+
+- TypeScript
+
+- TailwindCSS 4
+
+- WebSocket (ws)
+
+- Bun para el servidor

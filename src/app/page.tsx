@@ -1,103 +1,187 @@
-import Image from "next/image";
+/* eslint-disable @next/next/no-img-element */
+'use client';
 
-export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
+import { useEffect, useState } from 'react';
+
+interface Message {
+  type: string;
+  text?: string;
+  from?: string;
+  filename?: string;
+  file?: string;
+  self?: boolean;
+  time?: string;
+}
+
+export default function ChatClient() {
+  const [ws, setWs] = useState<WebSocket | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [input, setInput] = useState('');
+  const [username, setUsername] = useState('');
+  const [connected, setConnected] = useState(false);
+
+  useEffect(() => {
+    const socket = new WebSocket('ws://localhost:5000');
+
+    socket.onmessage = (event) => {
+      const msg = JSON.parse(event.data) as Message;
+      const incomingMsg = {
+        ...msg,
+        self: msg.from === username,
+        time:
+          msg.time ||
+          new Date().toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit',
+          }),
+      };
+      setMessages((prev) => [...prev, incomingMsg]);
+    };
+
+    socket.onopen = () => console.log('Conectado al servidor');
+    setWs(socket);
+
+    return () => socket.close();
+  }, [username]);
+
+  const getTime = () => {
+    const now = new Date();
+    return now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const register = () => {
+    if (!username.trim() || !ws) return;
+    ws.send(JSON.stringify({ type: 'register', from: username }));
+    setConnected(true);
+  };
+
+  const sendMessage = () => {
+    if (!input.trim() || !ws) return;
+    const newMsg: Message = {
+      type: 'message',
+      text: input,
+      self: true,
+      time: getTime(),
+    };
+    setMessages((prev) => [...prev, newMsg]);
+    ws.send(JSON.stringify({ type: 'message', text: input }));
+    setInput('');
+  };
+
+  const sendFile = (file: File) => {
+    if (!ws) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = (reader.result as string).split(',')[1];
+      const newMsg: Message = {
+        type: 'file',
+        filename: file.name,
+        file: base64,
+        self: true,
+        time: getTime(),
+      };
+      setMessages((prev) => [...prev, newMsg]);
+      ws.send(
+        JSON.stringify({
+          type: 'file',
+          filename: file.name,
+          file: base64,
+        }),
+      );
+    };
+    reader.readAsDataURL(file);
+  };
+
+  if (!connected) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-gray-100 p-4 text-black">
+        <input
+          placeholder="Tu nombre"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          className="mb-4 w-64 rounded-lg border p-2 text-center"
         />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+        <button
+          onClick={register}
+          className="rounded-lg bg-blue-500 px-6 py-2 text-white shadow-md transition hover:bg-blue-600"
+        >
+          Entrar al chat
+        </button>
+      </div>
+    );
+  }
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
+  return (
+    <div className="flex min-h-screen flex-col bg-gray-100 p-4 text-black">
+      <div className="flex flex-1 flex-col space-y-2 overflow-y-auto rounded-lg border bg-white p-3">
+        {messages.map((msg, idx) => {
+          const isImage = msg.filename?.match(/\.(jpg|jpeg|png|gif|webp)$/i);
+          return (
+            <div key={idx} className={`flex ${msg.self ? 'justify-end' : 'justify-start'}`}>
+              <div
+                className={`relative max-w-xs rounded-2xl px-3 py-2 text-sm shadow ${
+                  msg.self
+                    ? 'rounded-br-none bg-green-200 text-right'
+                    : 'rounded-bl-none bg-gray-200 text-left'
+                }`}
+              >
+                {/* Texto */}
+                {msg.text && <p>{msg.text}</p>}
+
+                {/* Imagen */}
+                {msg.file && isImage && (
+                  <img
+                    src={`data:image/*;base64,${msg.file}`}
+                    alt={msg.filename}
+                    className="mt-1 max-w-full rounded-lg"
+                  />
+                )}
+
+                {/* Archivo */}
+                {msg.file && !isImage && (
+                  <a
+                    href={`data:application/octet-stream;base64,${msg.file}`}
+                    download={msg.filename}
+                    className="text-blue-500 underline"
+                  >
+                    📎 {msg.filename}
+                  </a>
+                )}
+
+                {/* Hora */}
+                <div className="mt-1 text-right text-[10px] text-gray-500">{msg.time}</div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="mt-3 flex space-x-2">
+        <input
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          className="flex-1 rounded-full border p-2 focus:outline-none"
+          placeholder="Escribe un mensaje..."
+        />
+        <button
+          onClick={sendMessage}
+          className="rounded-full bg-green-500 px-4 py-2 text-white transition hover:bg-green-600"
         >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
+          ➤
+        </button>
+        <input
+          type="file"
+          onChange={(e) => e.target.files && sendFile(e.target.files[0])}
+          className="hidden"
+          id="file-upload"
+        />
+        <label
+          htmlFor="file-upload"
+          className="cursor-pointer rounded-full bg-gray-200 p-2 transition hover:bg-gray-300"
         >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+          📎
+        </label>
+      </div>
     </div>
   );
 }
