@@ -1,4 +1,3 @@
-/* eslint-disable @next/next/no-img-element */
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -7,6 +6,7 @@ interface Message {
   type: string;
   text?: string;
   from?: string;
+  to?: string;
   filename?: string;
   file?: string;
   self?: boolean;
@@ -19,6 +19,7 @@ export default function ChatClient() {
   const [input, setInput] = useState('');
   const [username, setUsername] = useState('');
   const [connected, setConnected] = useState(false);
+  const [recipient, setRecipient] = useState('');
 
   useEffect(() => {
     const socket = new WebSocket('ws://localhost:5000');
@@ -57,14 +58,28 @@ export default function ChatClient() {
 
   const sendMessage = () => {
     if (!input.trim() || !ws) return;
-    const newMsg: Message = {
+    const msg: Message = {
       type: 'message',
       text: input,
       self: true,
       time: getTime(),
     };
-    setMessages((prev) => [...prev, newMsg]);
+    setMessages((prev) => [...prev, msg]);
     ws.send(JSON.stringify({ type: 'message', text: input }));
+    setInput('');
+  };
+
+  const sendPrivateMessage = () => {
+    if (!input.trim() || !recipient.trim() || !ws) return;
+    const msg: Message = {
+      type: 'private',
+      text: input,
+      self: true,
+      to: recipient,
+      time: getTime(),
+    };
+    setMessages((prev) => [...prev, { ...msg, text: `(Privado a ${recipient}) ${input}` }]);
+    ws.send(JSON.stringify({ type: 'private', to: recipient, text: input }));
     setInput('');
   };
 
@@ -112,8 +127,8 @@ export default function ChatClient() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-gray-100 p-4 text-black">
-      <div className="flex flex-1 flex-col space-y-2 overflow-y-auto rounded-lg border bg-white p-3">
+    <div className="flex min-h-screen flex-col items-center bg-gray-100 p-4 text-black">
+      <div className="flex w-full max-w-5xl flex-1 flex-col space-y-2 overflow-y-auto rounded-lg border bg-white p-3">
         {messages.map((msg, idx) => {
           const isImage = msg.filename?.match(/\.(jpg|jpeg|png|gif|webp)$/i);
           return (
@@ -122,13 +137,17 @@ export default function ChatClient() {
                 className={`relative max-w-xs rounded-2xl px-3 py-2 text-sm shadow ${
                   msg.self
                     ? 'rounded-br-none bg-green-200 text-right'
-                    : 'rounded-bl-none bg-gray-200 text-left'
+                    : msg.type === 'private'
+                      ? 'bg-yellow-200'
+                      : 'rounded-bl-none bg-gray-200 text-left'
                 }`}
               >
-                {/* Texto */}
+                {!msg.self && msg.from && (
+                  <div className="mb-1 text-xs font-bold text-blue-700">{msg.from}</div>
+                )}
+
                 {msg.text && <p>{msg.text}</p>}
 
-                {/* Imagen */}
                 {msg.file && isImage && (
                   <img
                     src={`data:image/*;base64,${msg.file}`}
@@ -137,7 +156,6 @@ export default function ChatClient() {
                   />
                 )}
 
-                {/* Archivo */}
                 {msg.file && !isImage && (
                   <a
                     href={`data:application/octet-stream;base64,${msg.file}`}
@@ -148,7 +166,6 @@ export default function ChatClient() {
                   </a>
                 )}
 
-                {/* Hora */}
                 <div className="mt-1 text-right text-[10px] text-gray-500">{msg.time}</div>
               </div>
             </div>
@@ -156,7 +173,13 @@ export default function ChatClient() {
         })}
       </div>
 
-      <div className="mt-3 flex space-x-2">
+      <div className="mt-3 flex w-full max-w-5xl space-x-2">
+        <input
+          placeholder="Destinatario (para privado)"
+          value={recipient}
+          onChange={(e) => setRecipient(e.target.value)}
+          className="w-2xs rounded-full border p-2"
+        />
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
@@ -168,6 +191,12 @@ export default function ChatClient() {
           className="rounded-full bg-green-500 px-4 py-2 text-white transition hover:bg-green-600"
         >
           ➤
+        </button>
+        <button
+          onClick={sendPrivateMessage}
+          className="rounded-full bg-yellow-500 px-4 py-2 text-white transition hover:bg-yellow-600"
+        >
+          🔒
         </button>
         <input
           type="file"

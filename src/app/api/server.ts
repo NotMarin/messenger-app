@@ -58,8 +58,9 @@ wss.on('connection', (ws) => {
 
     if (msg.type === 'private' && msg.to && msg.text) {
       sendTo(msg.to, {
-        type: 'message',
-        text: `[Privado de ${username}] ${msg.text}`,
+        type: 'private',
+        from: username,
+        text: msg.text,
         time: getTime(),
       });
       return;
