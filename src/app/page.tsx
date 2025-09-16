@@ -1,6 +1,7 @@
+/* eslint-disable @next/next/no-img-element */
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 interface Message {
   type: string;
@@ -20,12 +21,22 @@ export default function ChatClient() {
   const [username, setUsername] = useState('');
   const [connected, setConnected] = useState(false);
   const [recipient, setRecipient] = useState('');
+  const [users, setUsers] = useState<string[]>([]);
+
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const socket = new WebSocket('ws://localhost:5000');
 
     socket.onmessage = (event) => {
-      const msg = JSON.parse(event.data) as Message;
+      const msg = JSON.parse(event.data) as Message & { users?: string[] };
+      if (msg.type === 'users' && Array.isArray(msg.users)) {
+        setUsers(msg.users);
+        return;
+      }
+      if (msg.type === 'file-private' && msg.from === username) {
+        return;
+      }
       const incomingMsg = {
         ...msg,
         self: msg.from === username,
@@ -44,6 +55,10 @@ export default function ChatClient() {
 
     return () => socket.close();
   }, [username]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
   const getTime = () => {
     const now = new Date();
@@ -88,12 +103,15 @@ export default function ChatClient() {
     const reader = new FileReader();
     reader.onload = () => {
       const base64 = (reader.result as string).split(',')[1];
+      const isPrivate = !!recipient.trim();
       const newMsg: Message = {
-        type: 'file',
+        type: isPrivate ? 'file-private' : 'file',
         filename: file.name,
         file: base64,
         self: true,
         time: getTime(),
+        to: isPrivate ? recipient : undefined,
+        text: isPrivate ? `(Privado a ${recipient})` : undefined,
       };
       setMessages((prev) => [...prev, newMsg]);
       ws.send(
@@ -101,6 +119,7 @@ export default function ChatClient() {
           type: 'file',
           filename: file.name,
           file: base64,
+          to: isPrivate ? recipient : undefined,
         }),
       );
     };
@@ -128,49 +147,90 @@ export default function ChatClient() {
 
   return (
     <div className="flex min-h-screen flex-col items-center bg-gray-100 p-4 text-black">
-      <div className="flex w-full max-w-5xl flex-1 flex-col space-y-2 overflow-y-auto rounded-lg border bg-white p-3">
-        {messages.map((msg, idx) => {
-          const isImage = msg.filename?.match(/\.(jpg|jpeg|png|gif|webp)$/i);
-          return (
-            <div key={idx} className={`flex ${msg.self ? 'justify-end' : 'justify-start'}`}>
-              <div
-                className={`relative max-w-xs rounded-2xl px-3 py-2 text-sm shadow ${
-                  msg.self
-                    ? 'rounded-br-none bg-green-200 text-right'
-                    : msg.type === 'private'
-                      ? 'bg-yellow-200'
-                      : 'rounded-bl-none bg-gray-200 text-left'
-                }`}
-              >
-                {!msg.self && msg.from && (
-                  <div className="mb-1 text-xs font-bold text-blue-700">{msg.from}</div>
-                )}
+      <div className="flex w-full max-w-5xl flex-1 gap-3">
+        {/* Panel de usuarios */}
+        <aside className="w-64 shrink-0 overflow-y-auto rounded-lg border bg-white p-3">
+          <div className="mb-2 flex items-center justify-between">
+            <h3 className="font-semibold">Conectados</h3>
+            <span className="text-xs text-gray-500">
+              {users.filter((u) => u !== username).length}
+            </span>
+          </div>
+          <button
+            onClick={() => setRecipient('')}
+            className={`w-full rounded-md px-2 py-1 text-left text-sm transition ${
+              recipient ? 'hover:bg-gray-100' : 'bg-blue-100 text-blue-700'
+            }`}
+          >
+            Todos (público)
+          </button>
+          <div className="mt-2 space-y-1">
+            {users
+              .filter((u) => u !== username)
+              .map((u) => (
+                <button
+                  key={u}
+                  onClick={() => setRecipient(u)}
+                  className={`w-full truncate rounded-md px-2 py-1 text-left text-sm transition ${recipient === u ? 'bg-blue-500 text-white' : 'hover:bg-gray-100'}`}
+                  title={u}
+                >
+                  {u}
+                </button>
+              ))}
+          </div>
+        </aside>
 
-                {msg.text && <p>{msg.text}</p>}
+        {/* Área de mensajes */}
+        <div className="flex flex-1 flex-col space-y-2 overflow-y-auto rounded-lg border bg-white p-3">
+          {messages.map((msg, idx) => {
+            const isImage = msg.filename?.match(/\.(jpg|jpeg|png|gif|webp)$/i);
+            const isPrivateFile = msg.type === 'file-private';
+            return (
+              <div key={idx} className={`flex ${msg.self ? 'justify-end' : 'justify-start'}`}>
+                <div
+                  className={`relative max-w-xs rounded-2xl px-3 py-2 text-sm shadow ${
+                    msg.self
+                      ? 'rounded-br-none bg-green-200 text-right'
+                      : msg.type === 'private' || isPrivateFile
+                        ? 'bg-yellow-200'
+                        : 'rounded-bl-none bg-gray-200 text-left'
+                  }`}
+                >
+                  {!msg.self && msg.from && (
+                    <div className="mb-1 text-xs font-bold text-blue-700">{msg.from}</div>
+                  )}
 
-                {msg.file && isImage && (
-                  <img
-                    src={`data:image/*;base64,${msg.file}`}
-                    alt={msg.filename}
-                    className="mt-1 max-w-full rounded-lg"
-                  />
-                )}
+                  {isPrivateFile && msg.to && (
+                    <div className="mb-1 text-xs text-pink-700">Privado para {msg.to}</div>
+                  )}
 
-                {msg.file && !isImage && (
-                  <a
-                    href={`data:application/octet-stream;base64,${msg.file}`}
-                    download={msg.filename}
-                    className="text-blue-500 underline"
-                  >
-                    📎 {msg.filename}
-                  </a>
-                )}
+                  {msg.text && <p>{msg.text}</p>}
 
-                <div className="mt-1 text-right text-[10px] text-gray-500">{msg.time}</div>
+                  {msg.file && isImage && (
+                    <img
+                      src={`data:image/*;base64,${msg.file}`}
+                      alt={msg.filename}
+                      className="mt-1 max-w-full rounded-lg"
+                    />
+                  )}
+
+                  {msg.file && !isImage && (
+                    <a
+                      href={`data:application/octet-stream;base64,${msg.file}`}
+                      download={msg.filename}
+                      className="text-blue-500 underline"
+                    >
+                      📎 {msg.filename}
+                    </a>
+                  )}
+
+                  <div className="mt-1 text-right text-[10px] text-gray-500">{msg.time}</div>
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
+          <div ref={messagesEndRef} />
+        </div>
       </div>
 
       <div className="mt-3 flex w-full max-w-5xl space-x-2">

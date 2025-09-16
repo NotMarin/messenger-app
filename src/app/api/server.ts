@@ -20,6 +20,11 @@ const clients: Record<string, WebSocket> = {};
 const wss = new WebSocketServer({ port: 5000 });
 console.log('✅ Servidor WebSocket escuchando en ws://localhost:5000');
 
+/**
+ * Returns the current time as a string formatted with two-digit hour and minute.
+ *
+ * @returns {string} The current time in "HH:MM" format based on the user's locale.
+ */
 function getTime() {
   const now = new Date();
   return now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -48,6 +53,7 @@ wss.on('connection', (ws) => {
         },
         username,
       );
+      broadcastUsers();
       return;
     }
 
@@ -68,18 +74,21 @@ wss.on('connection', (ws) => {
 
     if (msg.type === 'file' && msg.filename && msg.file) {
       const payload = {
-        type: 'file',
+        type: msg.to ? 'file-private' : 'file',
         from: username,
         filename: msg.filename,
         file: msg.file,
         time: getTime(),
+        to: msg.to,
       };
       if (msg.to) {
         sendTo(msg.to, payload);
+        sendTo(username, payload);
+        console.log(`📂 Archivo privado ${msg.filename} enviado por ${username} a ${msg.to}`);
       } else {
         broadcast(payload, username);
+        console.log(`📂 Archivo ${msg.filename} enviado por ${username}`);
       }
-      console.log(`📂 Archivo ${msg.filename} enviado por ${username}`);
       return;
     }
   });
@@ -93,6 +102,7 @@ wss.on('connection', (ws) => {
         text: `🔕 ${username} ha salido del chat`,
         time: getTime(),
       });
+      broadcastUsers();
     }
   });
 });
@@ -106,4 +116,12 @@ function broadcast(msg: any, exclude?: string) {
 
 function sendTo(to: string, msg: any) {
   if (clients[to]) clients[to].send(JSON.stringify(msg));
+}
+
+function listUsers(): string[] {
+  return Object.keys(clients);
+}
+
+function broadcastUsers() {
+  broadcast({ type: 'users', users: listUsers() });
 }
